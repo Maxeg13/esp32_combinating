@@ -14,32 +14,7 @@
 #include "driver/uart.h"
 #include "esp_vfs_dev.h"
 //#include "adc.h"
-#include "i2c_regs.h"
-#include "driver/i2c.h"
-#include "qmc5883l_mag.h"
-
-
-i2c_master_bus_config_t i2c_mst_config = {
-        -1,
-        GPIO_NUM_33,
-        GPIO_NUM_25,
-        I2C_CLK_SRC_DEFAULT,
-        7,
-        {true},
-        {},
-        {1}
-};
-
-i2c_master_bus_handle_t bus_handle;
-
-i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = 0x0d,
-        .scl_speed_hz = 100000,
-};
-
-
-i2c_master_dev_handle_t dev_handle;
+#include "mag_qmc5883l.h"
 
 const static char *TAG = "";
 
@@ -58,13 +33,8 @@ const static char *TAG = "";
 //}
 
 
-
 extern "C" {
 void app_main(void) {
-
-    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &bus_handle));
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle));
-
     ////////////////////////////////////////////
     // Set up stdin/stdout to use UART
     setvbuf(stdin, NULL, _IONBF, 0); // No buffering for stdin
@@ -106,25 +76,23 @@ void app_main(void) {
 //    ESP_ERROR_CHECK(gptimer_enable(gptimer));
     //    ESP_ERROR_CHECK(gptimer_start(gptimer));
 
-    i2c_reg_write(dev_handle, QMC5883L_RESET,0x01);
-    i2c_reg_write(dev_handle,QMC5883L_CONFIG,QMC5883L_CONFIG_OS512|QMC5883L_CONFIG_2GAUSS|QMC5883L_CONFIG_50HZ|QMC5883L_CONFIG_CONT);
-
-    vTaskDelay(100);
-
+    Mag magUp(GPIO_NUM_33, GPIO_NUM_25);
+    Mag magDwn(GPIO_NUM_16, GPIO_NUM_17);
 
     while (true) {
-        uint8_t mas[6] = {};
         int16_t x, y, z;
-        vTaskDelay(20);
+        vTaskDelay(3);
+        vTaskDelay(3);
 
-        i2c_reg_read(dev_handle, QMC5883L_X_LSB, &mas[0], 6);
+        magUp.read(x, y, z);
+        printf("%d,%d,%d,", x, y, z);
 
-        memcpy(&x, &mas[0], 2);
-        memcpy(&y, &mas[2], 2);
-        memcpy(&z, &mas[4], 2);
-
-        printf("mas %d %d %d\n", x, y, z);
-
+        magDwn.read(x, y, z);
+        printf("%d,%d,%d\n", x, y, z);
+//        if(ctr++ > 6) {
+//            ctr = 0;
+//            printf("\n");
+//        }
 
 //        i2c_master_receive(dev_handle, &rec, 1, 2);
 //        printf("data: %d\n", rec);
