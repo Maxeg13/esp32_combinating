@@ -4,7 +4,7 @@
 #include "esp_adc/adc_cali.h"
 #include "esp_log.h"
 
-#define ADC_CHAN          ADC_CHANNEL_6
+#define ADC_CHAN                    ADC_CHANNEL_5
 #define EXAMPLE_ADC_ATTEN           ADC_ATTEN_DB_11
 adc_oneshot_unit_handle_t adc1_handle;
 adc_cali_handle_t adc1_cali_chan_handle = NULL;

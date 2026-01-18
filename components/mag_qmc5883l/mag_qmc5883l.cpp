@@ -28,7 +28,7 @@ Mag::Mag(gpio_num_t sda, gpio_num_t scl) {
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle));
 
     i2c_reg_write(dev_handle, QMC5883L_RESET,0x01);
-    i2c_reg_write(dev_handle,QMC5883L_CONFIG,QMC5883L_CONFIG_OS512|QMC5883L_CONFIG_2GAUSS|QMC5883L_CONFIG_100HZ|QMC5883L_CONFIG_CONT);
+    i2c_reg_write(dev_handle,QMC5883L_CONFIG,QMC5883L_CONFIG_OS512|QMC5883L_CONFIG_8GAUSS|QMC5883L_CONFIG_200HZ|QMC5883L_CONFIG_CONT);
 
 }
 

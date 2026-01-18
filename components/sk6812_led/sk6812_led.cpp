@@ -74,7 +74,7 @@ static void sk6812_led_task(void *pvParameters) {
     queue = xQueueCreate(2, sizeof(ColourState*));
 
     ColourState* target;
-    ColourState state = {0,0,0};
+    ColourState state = ColourState{0,0,0};
 
     while(true) {
         if(xQueueReceive(queue, &target , (TickType_t)0)) {
@@ -87,9 +87,9 @@ static void sk6812_led_task(void *pvParameters) {
 //            state.print();
         }
 
-        skc6812_led_shine(state);
+        skc6812_led_shine(&state);
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -106,9 +106,9 @@ void ColourState::stepTo(const ColourState &targ) {
     else if(b > targ.b)   minus(b, step);
 }
 
-void skc6812_led_shine(const ColourState& state) {
+void skc6812_led_shine(const ColourState* state) {
     static uint8_t bits[24]{};
-    const uint8_t* colourPtrs[3] = {&state.g, &state.r, &state.b};
+    const uint8_t* colourPtrs[3] = {&state->g, &state->r, &state->b};
 
     for(int i=0; const auto& colourPtr: colourPtrs) {
         for(int b = 7; (i < sizeof(bits)) && b != -1; i++, b--) {
@@ -135,7 +135,7 @@ void skc6812_led_push(const ColourState* state) {
     xQueueSend(queue, &state, (TickType_t)0 );
 }
 
-void skc6812_led_Init(gpio_num_t num) {
+void skc6812_led_init(gpio_num_t num) {
     gpio_num = num;
 
     gpio_reset_pin(num);

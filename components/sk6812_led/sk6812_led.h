@@ -15,6 +15,9 @@ struct ColourState {
     uint8_t r;
     uint8_t b;
 
+    explicit ColourState(uint8_t g, uint8_t r, uint8_t b):
+                g((g / step) * step) ,r((r / step) * step), b((b / step) * step) {};
+
     mutable ColourState* targetPtr = nullptr;
     ///////////////
     void initTarget(const ColourState*) const;
@@ -22,7 +25,7 @@ struct ColourState {
     void stepTo(const ColourState& targ);
 };
 
-void skc6812_led_Init(gpio_num_t num);
-void skc6812_led_shine(const ColourState& state);
+void skc6812_led_init(gpio_num_t num);
+void skc6812_led_shine(const ColourState* state);
 void skc6812_led_push(const ColourState* state);
 void skc6812_led_blue_test();
