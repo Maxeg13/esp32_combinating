@@ -32,7 +32,7 @@ float magVal_;
 float magSpeed;
 bool consoleCtrl = 0;
 
-const ColourState idleClr = ColourState{4, 4, 5};
+const ColourState idleClr = ColourState{0, 0, 6};
 const ColourState capturedClr = ColourState{15, 41, 2};
 
 static const float magThrs[2] = {2233, 2370};
@@ -40,12 +40,12 @@ static int fireVal = 0;
 static bool isIdle = true;
 static uint8_t isIdleMas[10] = {0,0,0,0,0,0,0,0,0,0};
 static uint8_t isIdleMasPtr = 0;
-static const int timeScaling = 80;
+static const int timeScaling = 90;
 static const float magStart = 1720;
-static float magThr = 2240;   // 1860
+static float magThr = 1870;   // 2240 // 1860
 static const int fireValMax = 32;
 static const float sens = fireValMax/(2500 - magThr); // 0.003
-static const float speedSens = sens * 3; // 1.2
+static const float speedSens = sens * 2.9; // 1.2
 
 static bool timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
 {
@@ -96,7 +96,7 @@ void app_main(void) {
 
     skc6812_led_init(GPIO_NUM_17);
 
-//    skc6812_led_shine(idleClr);
+    skc6812_led_push(&idleClr);
 //    adc_init();
 //
 //    // timer
@@ -114,7 +114,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(gptimer_register_event_callbacks(gptimer, &cbs, NULL));
 
     gptimer_alarm_config_t alarm_config = {
-            10000, // 10000 for blinking
+            1000, // 10000 for blinking
             0, // counter will reload with 0 on alarm event
             {true}, // enable auto-reload
     };
@@ -134,7 +134,7 @@ void app_main(void) {
         // was magUp and dwn printf("%d,%d,%d,", x, y, z); printf("%d,%d,%d\n", x, y, z);
 //        magDwn.read(x, y, z);
 
-        ets_delay_us(5);
+        ets_delay_us(2);
 
         magVal_ = magVal;
 
@@ -158,7 +158,7 @@ void app_main(void) {
             fireVal = fireValMax;
         }
         //////////
-//        fireVal = 2;
+//        fireVal = fireValMax / 3;
 //        isIdle = false;
         //////////
         isIdle = ((magVal < magStart) || (fireVal == 0));
@@ -182,15 +182,17 @@ void app_main(void) {
             consoleCtrl = 0;
 
             bool light = false;
+            static bool lightened = false;
+            lightened = light;
             for(int i=0; i < 10; i++) light += isIdleMas[i];
-            if(light) {
+            if(light && ! lightened) {
                 skc6812_led_push(&idleClr);
             } else {
                 skc6812_led_push(&capturedClr);
             }
 
 //            printf("idle: %d, ", isIdle);
-//            printf("%d, %d\n", (int)magVal, fireVal);
+            printf("%d, %d\n", (int)magVal, fireVal);
         }
     }
 }

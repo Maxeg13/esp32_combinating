@@ -9,20 +9,28 @@
 // }
 
 struct ColourState {
-    static constexpr uint8_t step = 2;
+    static const int steps_n = 10;
 
-    uint8_t g;
-    uint8_t r;
-    uint8_t b;
+    float g;
+    float r;
+    float b;
+
+    mutable int step_i = 0;
+
+    mutable float g_step = 2;
+    mutable float r_step = 2;
+    mutable float b_step = 2;
 
     explicit ColourState(uint8_t g, uint8_t r, uint8_t b):
-                g((g / step) * step) ,r((r / step) * step), b((b / step) * step) {};
+            g(g), r(r), b(b) {}
+//                g((g / g_step) * g_step) ,r((r / step) * step), b((b / step) * step) {};
 
     mutable ColourState* targetPtr = nullptr;
     ///////////////
     void initTarget(const ColourState*) const;
     void print() const;
     void stepTo(const ColourState& targ);
+    void computeStep(const ColourState* targ) const;
 };
 
 void skc6812_led_init(gpio_num_t num);

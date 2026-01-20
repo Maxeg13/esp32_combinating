@@ -3,7 +3,6 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 
-//#define GPIO_OUT GPIO_NUM_32
 static gpio_num_t gpio_num;
 
 #if !defined(CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160)
@@ -52,18 +51,18 @@ static void set_t1l() {
             );
 }
 
-static void add(uint8_t& x, uint8_t incr) {
-    if((int)x + (int)incr > 255) x = 255;
+static void add(float& x, float incr) {
+    if(x + incr > 255) x = 255;
     else x+= incr;
 }
 
-static void minus(uint8_t& x, uint8_t decr) {
-    if((int)x - (int)decr < 0) x = 0;
+static void minus(float& x, float decr) {
+    if(x - decr < 0) x = 0;
     else x -= decr;
 }
 
 void ColourState::print() const{
-    printf("(%d, %d, %d)\n", g, r, b);
+    printf("(%f, %f, %f)\n", g, r, b);
 }
 
 void ColourState::initTarget(const ColourState* p) const {
@@ -79,6 +78,7 @@ static void sk6812_led_task(void *pvParameters) {
     while(true) {
         if(xQueueReceive(queue, &target , (TickType_t)0)) {
             state.targetPtr = target;
+            state.computeStep(state.targetPtr);
 //            state.targetPtr->print();
         }
 
@@ -89,26 +89,35 @@ static void sk6812_led_task(void *pvParameters) {
 
         skc6812_led_shine(&state);
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(40));
     }
 }
 
 ////////////////
 
 void ColourState::stepTo(const ColourState &targ) {
-    if(g < targ.g)      add(g, step);
-    else if(g > targ.g)   minus(g, step);
+    if(step_i > steps_n) return;
+    step_i++;
 
-    if(r < targ.r)      add(r, step);
-    else if(r > targ.r)   minus(r, step);
+    g += g_step;
+    r += r_step;
+    b += b_step;
+}
 
-    if(b < targ.b)      add(b, step);
-    else if(b > targ.b)   minus(b, step);
+void ColourState::computeStep(const ColourState* targ) const {
+    step_i = 0;
+
+    g_step = (targ->g - g) / steps_n;
+    r_step = (targ->r - r) / steps_n;
+    b_step = (targ->b - b) / steps_n;
 }
 
 void skc6812_led_shine(const ColourState* state) {
     static uint8_t bits[24]{};
-    const uint8_t* colourPtrs[3] = {&state->g, &state->r, &state->b};
+    uint8_t g = state->g;
+    uint8_t r = state->r;
+    uint8_t b = state->b;
+    const uint8_t* colourPtrs[3] = {&g, &r, &b};
 
     for(int i=0; const auto& colourPtr: colourPtrs) {
         for(int b = 7; (i < sizeof(bits)) && b != -1; i++, b--) {
