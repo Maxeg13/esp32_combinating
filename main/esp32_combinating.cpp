@@ -21,61 +21,34 @@
 
 const static char *TAG = "";
 
-//static ColourState* neutralPtr = new ColourState{20, 20, 20};
-//static ColourState* bluePtr = new ColourState{0, 0, 200};
-//static ColourState* redPtr = new ColourState{0, 200, 0};
-
 #define FET_PIN GPIO_NUM_19
-int16_t x, y, z;
+
 float magVal;
 float magVal_;
 float magSpeed;
 bool consoleCtrl = 0;
 
-const ColourState idleClr = ColourState{0, 0, 6};
+const ColourState idleClr = ColourState{7, 7, 7};
 const ColourState capturedClr = ColourState{15, 41, 2};
 
-static const float magThrs[2] = {2233, 2370};
+static const float magThrs[2] = {1790, 1835};
 static int fireVal = 0;
 static bool isIdle = true;
 static uint8_t isIdleMas[10] = {0,0,0,0,0,0,0,0,0,0};
 static uint8_t isIdleMasPtr = 0;
-static const int timeScaling = 90;
-static const float magStart = 1720;
-static float magThr = 1870;   // 2240 // 1860
+static const int timeScaling = 150;
+static const float magStart = 1640; // 1720
+static float magThr = 2000;   // 2240 // 1850
+static const float magRange = 170;
 static const int fireValMax = 32;
-static const float sens = fireValMax/(2500 - magThr); // 0.003
-static const float speedSens = sens * 2.9; // 1.2
+static const float sens = fireValMax/magRange; // 2500
+static const float speedSens = sens * 1; // 1.2
 
 static bool timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
 {
-//    static const ColourState* targetPtr{neutralPtr};
-
-//    skc6812_led_push(targetPtr);
-//    targetPtr = targetPtr->targetPtr;
-//    if(z > 14000) {
-//        if ((z < 20000)) {
-//            1;
-//        }
-////            gpio_set_level(FET_PIN, lvl);}
-//
-//    } else {
-//
-//    }
-
     consoleCtrl = 1;
-
-//    static int i=0;
-//    i++;
-//    i%=2;
-//    magThr = magThrs[i];
-
     return true;
 }
-
-#define NOPS_SLEEP_100NS    "nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t" \
-                            "nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t" \
-                            "nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t" "nop\n\t"
 
 extern "C" {
 void app_main(void) {
@@ -134,7 +107,7 @@ void app_main(void) {
         // was magUp and dwn printf("%d,%d,%d,", x, y, z); printf("%d,%d,%d\n", x, y, z);
 //        magDwn.read(x, y, z);
 
-        ets_delay_us(2);
+        ets_delay_us(4);
 
         magVal_ = magVal;
 
@@ -144,6 +117,9 @@ void app_main(void) {
         for(int i = 0; i<overSamplingRate; i++)
             magVal += adc_get();
         magVal *= 1000/overSamplingRate;
+
+        magVal *= -1;
+        magVal += 1700*2 + 400;
 
         magSpeed = magVal - magVal_;
 
@@ -158,10 +134,11 @@ void app_main(void) {
             fireVal = fireValMax;
         }
         //////////
-//        fireVal = fireValMax / 3;
+//        fireVal = fireValMax - 1;
 //        isIdle = false;
         //////////
         isIdle = ((magVal < magStart) || (fireVal == 0));
+
         isIdleMasPtr++;
         if(isIdleMasPtr >= 10) isIdleMasPtr = 0;
         isIdleMas[isIdleMasPtr] = isIdle;
@@ -180,6 +157,18 @@ void app_main(void) {
 
         if(consoleCtrl) {
             consoleCtrl = 0;
+
+//            static int ctr = 0;
+//            ctr++;
+//            if(ctr % 100 == 0 ) {
+//                static int state = 0;
+//                state++;
+//                state%=2;
+//                magThr = magThrs[state];
+//            }
+
+//            static float phi = 0;
+//            magThr = 1940 + 170 * sin(phi += 0.02);
 
             bool light = false;
             static bool lightened = false;

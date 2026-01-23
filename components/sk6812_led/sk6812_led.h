@@ -9,7 +9,7 @@
 // }
 
 struct ColourState {
-    static const int steps_n = 10;
+    static const int steps_n = 8;
 
     float g;
     float r;
