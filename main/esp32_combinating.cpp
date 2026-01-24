@@ -36,9 +36,9 @@ static int fireVal = 0;
 static bool isIdle = true;
 static uint8_t isIdleMas[10] = {0,0,0,0,0,0,0,0,0,0};
 static uint8_t isIdleMasPtr = 0;
-static const int timeScaling = 150;
+static int timeScaling = 150;
 static const float magStart = 1640; // 1720
-static float magThr = 2000;   // 2240 // 1850
+static float magThr = 1798;   // 2240 // 1850
 static const float magRange = 170;
 static const int fireValMax = 32;
 static const float sens = fireValMax/magRange; // 2500
@@ -52,6 +52,8 @@ static bool timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_
 
 extern "C" {
 void app_main(void) {
+    ADC adc{ADC_CHANNEL_5};
+    ADC adc2{ADC_CHANNEL_6};
     ////////////////////////////////////////////
     // Set up stdin/stdout to use UART
 //    setvbuf(stdin, NULL, _IONBF, 0); // No buffering for stdin
@@ -100,7 +102,6 @@ void app_main(void) {
 
 //    Mag magUp(GPIO_NUM_33, GPIO_NUM_25);
 //    Mag magDwn(GPIO_NUM_16, GPIO_NUM_17);
-    adc_init();
     gpio_set_direction(FET_PIN, GPIO_MODE_OUTPUT);
 
     while (true) {
@@ -114,8 +115,10 @@ void app_main(void) {
         // adc
         static float overSamplingRate = 10;
         magVal = 0;
-        for(int i = 0; i<overSamplingRate; i++)
-            magVal += adc_get();
+        for(int i = 0; i<overSamplingRate; i++) {
+            ets_delay_us(100);
+            magVal += adc.get();
+        }
         magVal *= 1000/overSamplingRate;
 
         magVal *= -1;
@@ -182,34 +185,8 @@ void app_main(void) {
 
 //            printf("idle: %d, ", isIdle);
             printf("%d, %d\n", (int)magVal, fireVal);
+//            printf("%d, %f\n", (int)magVal, adc2.get());
         }
     }
 }
 }
-
-
-// test routine
-////        printf("start\n");
-//for(int i = 0 ; i< 10; i++) {
-//gpio_set_level(FET_PIN, 1);
-//magDwn.read(x, y, z);
-//ets_delay_us(5000);
-//magVal = sqrt(x * x + y * y + z * z);
-//printf("%d, %d\n", (int)magVal, 0);
-////            printf("%d,%d,%d\n", x, y, z);
-//}
-//
-//for(int i = 0 ; i< 10; i++) {
-//gpio_set_level(FET_PIN, 0);
-//magDwn.read(x, y, z);
-//ets_delay_us(5000);
-//magVal = sqrt(x * x + y * y + z * z);
-//printf("%d, %d\n", (int)magVal, 0);
-////            printf("%d,%d,%d\n", x, y, z);
-//}
-//
-//magDwn.read(x, y, z);
-//magVal = sqrt(x * x + y * y + z * z);
-//printf("%d, %d\n", (int)magVal, 0);
-////        printf("%d,%d,%d\n", x, y, z);
-//vTaskDelay(pdMS_TO_TICKS(200));

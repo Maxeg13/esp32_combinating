@@ -4,45 +4,45 @@
 #include "esp_adc/adc_cali.h"
 #include "esp_log.h"
 
-#define ADC_CHAN                    ADC_CHANNEL_5
 #define EXAMPLE_ADC_ATTEN           ADC_ATTEN_DB_11
-adc_oneshot_unit_handle_t adc1_handle;
-adc_cali_handle_t adc1_cali_chan_handle = NULL;
-static int adc_raw;
-static int voltage;
+adc_oneshot_unit_handle_t adc_handle;
+adc_cali_handle_t adc_cali_chan_handle = NULL;
 
 const static char *TAG = "";
-static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
-static void example_adc_calibration_deinit(adc_cali_handle_t handle);
+static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle);
+static void adc_calibration_deinit(adc_cali_handle_t handle);
 
-void adc_init() {
+ADC::ADC(adc_channel_t channel): channel(channel) {
     //    -------------ADC1 Init---------------//
     adc_oneshot_unit_init_cfg_t init_config1 = {
             .unit_id = ADC_UNIT_1,
     };
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc_handle));
 
 //-------------ADC1 Config---------------//
     adc_oneshot_chan_cfg_t config = {
             .atten = EXAMPLE_ADC_ATTEN,
             .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_CHAN, &config));
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, channel, &config));
 
-    bool do_calibration1_chan0 = example_adc_calibration_init(ADC_UNIT_1, ADC_CHAN, EXAMPLE_ADC_ATTEN, &adc1_cali_chan_handle);
+    bool do_calibration1_chan0 = adc_calibration_init(ADC_UNIT_1, channel, EXAMPLE_ADC_ATTEN, &adc_cali_chan_handle);
+}
+
+void adc_init(adc_channel_t channel) {
 
 }
 
-float adc_get() {
-    ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHAN, &adc_raw));
-    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_chan_handle, adc_raw, &voltage));
+float ADC::get() {
+    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, channel, &adc_raw));
+    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali_chan_handle, adc_raw, &voltage));
     return voltage/1000.;
 }
 
 /*---------------------------------------------------------------
         ADC Calibration
 ---------------------------------------------------------------*/
-static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)
+static bool adc_calibration_init(adc_unit_t unit, adc_channel_t channel, adc_atten_t atten, adc_cali_handle_t *out_handle)
 {
     adc_cali_handle_t handle = NULL;
     esp_err_t ret = ESP_FAIL;
@@ -91,7 +91,7 @@ static bool example_adc_calibration_init(adc_unit_t unit, adc_channel_t channel,
     return calibrated;
 }
 
-static void example_adc_calibration_deinit(adc_cali_handle_t handle)
+static void adc_calibration_deinit(adc_cali_handle_t handle)
 {
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
     ESP_LOGI(TAG, "deregister %s calibration scheme", "Curve Fitting");
