@@ -21,18 +21,8 @@
 
 const static char *TAG = "";
 
-#define FET_PIN GPIO_NUM_19
-
-float magVal;
-float magVal_;
-float magSpeed;
-bool consoleCtrl = 0;
-
-const ColourState idleClr = ColourState{7, 7, 7};
-const ColourState capturedClr = ColourState{15, 41, 2};
-
 static const float magThrs[2] = {1790, 1835};
-static int fireVal = 0;
+
 static bool isIdle = true;
 static uint8_t isIdleMas[10] = {0,0,0,0,0,0,0,0,0,0};
 static uint8_t isIdleMasPtr = 0;
@@ -44,6 +34,58 @@ static const int fireValMax = 32;
 static const float sens = fireValMax/magRange; // 2500
 static const float speedSens = sens * 1; // 1.2
 
+struct Contour {
+    adc_channel_t channel;
+    float magVal;
+    float magVal_;
+    float magSpeed;
+    ADC adc;
+    int fireVal = 0;
+    gpio_num_t fetPin;
+    Contour(adc_channel_t channel, gpio_num_t pin): adc(channel), fetPin(pin) {
+        gpio_set_direction(fetPin, GPIO_MODE_OUTPUT);
+    }
+
+    void computeMag() {
+        magVal_ = magVal;
+
+        // adc
+        static float overSamplingRate = 10;
+        magVal = 0;
+        for(int i = 0; i<overSamplingRate; i++) {
+            ets_delay_us(100);
+            magVal += adc.get();
+        }
+        magVal *= 1000/overSamplingRate;
+
+        magVal *= -1;
+        magVal += 1700*2 + 400;
+    }
+
+    void computeSpeed() {
+        magSpeed = magVal - magVal_;
+    }
+
+    void computeOutput() {
+        if(magVal < magThr)
+            fireVal = fireValMax - magSpeed*speedSens;
+        else {
+            fireVal = fireValMax - (magVal - magThr) * sens - magSpeed*speedSens;
+        }
+
+        if(fireVal < 0 ) fireVal = 0;
+        else if(fireVal > fireValMax) {
+            fireVal = fireValMax;
+        }
+    }
+};
+
+
+bool consoleCtrl = 0;
+
+const ColourState idleClr = ColourState{7, 7, 7};
+const ColourState capturedClr = ColourState{15, 41, 2};
+
 static bool timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *user_ctx)
 {
     consoleCtrl = 1;
@@ -52,8 +94,8 @@ static bool timer_on_alarm_cb(gptimer_handle_t timer, const gptimer_alarm_event_
 
 extern "C" {
 void app_main(void) {
-    ADC adc{ADC_CHANNEL_5};
-    ADC adc2{ADC_CHANNEL_6};
+    Contour mainContour{ADC_CHANNEL_5, GPIO_NUM_19}; // chan 5 is gpio_33
+    Contour sideContour{ADC_CHANNEL_7, GPIO_NUM_16};
     ////////////////////////////////////////////
     // Set up stdin/stdout to use UART
 //    setvbuf(stdin, NULL, _IONBF, 0); // No buffering for stdin
@@ -102,7 +144,7 @@ void app_main(void) {
 
 //    Mag magUp(GPIO_NUM_33, GPIO_NUM_25);
 //    Mag magDwn(GPIO_NUM_16, GPIO_NUM_17);
-    gpio_set_direction(FET_PIN, GPIO_MODE_OUTPUT);
+
 
     while (true) {
         // was magUp and dwn printf("%d,%d,%d,", x, y, z); printf("%d,%d,%d\n", x, y, z);
@@ -110,53 +152,46 @@ void app_main(void) {
 
         ets_delay_us(4);
 
-        magVal_ = magVal;
+        mainContour.computeMag();
+        mainContour.computeSpeed();
+        sideContour.computeMag();
+        sideContour.computeSpeed();
 
-        // adc
-        static float overSamplingRate = 10;
-        magVal = 0;
-        for(int i = 0; i<overSamplingRate; i++) {
-            ets_delay_us(100);
-            magVal += adc.get();
-        }
-        magVal *= 1000/overSamplingRate;
+        mainContour.computeOutput();
+        sideContour.fireVal = 16;
 
-        magVal *= -1;
-        magVal += 1700*2 + 400;
-
-        magSpeed = magVal - magVal_;
-
-        if(magVal < magThr)
-            fireVal = fireValMax - magSpeed*speedSens;
-        else {
-            fireVal = fireValMax - (magVal - magThr) * sens - magSpeed*speedSens;
-        }
-
-        if(fireVal < 0 ) fireVal = 0;
-        else if(fireVal > fireValMax) {
-            fireVal = fireValMax;
-        }
         //////////
 //        fireVal = fireValMax - 1;
 //        isIdle = false;
         //////////
-        isIdle = ((magVal < magStart) || (fireVal == 0));
+        isIdle = ((mainContour.magVal < magStart) || (mainContour.fireVal == 0));
 
         isIdleMasPtr++;
         if(isIdleMasPtr >= 10) isIdleMasPtr = 0;
         isIdleMas[isIdleMasPtr] = isIdle;
 
         if (!isIdle) {
-            gpio_set_level(FET_PIN, 1);
-            ets_delay_us(fireVal * timeScaling);
-            gpio_set_level(FET_PIN, 0);
-            ets_delay_us((fireValMax - fireVal) * timeScaling);
+            gpio_set_level(mainContour.fetPin, 1);
+            gpio_set_level(sideContour.fetPin, 1);
+
+
+            for(int i=0; i<fireValMax; i++) {
+                ets_delay_us(timeScaling);
+                if( i >= mainContour.fireVal ) {
+                    gpio_set_level(mainContour.fetPin, 0);
+                }
+                if( i >= sideContour.fireVal ) {
+                    gpio_set_level(sideContour.fetPin, 0);
+                }
+
+            }
+            gpio_set_level(mainContour.fetPin, 0);
+            gpio_set_level(sideContour.fetPin, 0);
         } else {
-            gpio_set_level(FET_PIN, 0);
+            gpio_set_level(mainContour.fetPin, 0);
+            gpio_set_level(sideContour.fetPin, 0);
             vTaskDelay(pdMS_TO_TICKS(20));
         }
-
-        static bool captured = false;
 
         if(consoleCtrl) {
             consoleCtrl = 0;
@@ -184,8 +219,9 @@ void app_main(void) {
             }
 
 //            printf("idle: %d, ", isIdle);
-            printf("%d, %d\n", (int)magVal, fireVal);
-//            printf("%d, %f\n", (int)magVal, adc2.get());
+//            printf("%d, %d\n", (int)mainContour.magVal, mainContour.fireVal);
+            printf("%d, %d\n", (int)mainContour.magVal, (int)sideContour.magVal);
+//            printf("%d, %d\n", (int)(mainContour.magVal < magStart), mainContour.fireVal);
         }
     }
 }
